@@ -8,6 +8,7 @@ from app.crud.user import create_user, get_user, get_user_by_email
 from app.schemas.user import User, UserCreate
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.event_sourcing import acknowledge_event, add_event_to_stream, create_consumer_group, get_events, read_from_stream, record_event
 from app.services.leaderboard import add_score, get_leaderboard
 from app.services.proximity_search import add_location, find_nearby_locations
 from app.services.redis_lock import distributed_lock
@@ -89,7 +90,7 @@ async def get_top_leaderboard(top_n: int = 10):
 
 
 ##############################
-####### API Proximity #######
+####### API Proximity ########
 ##############################
 @app.post("/locations/")
 async def add_new_location(name: str, longitude: float, latitude: float):
@@ -105,3 +106,56 @@ async def get_nearby_locations(
         app.state.redis, longitude, latitude, radius, unit
     )
     return {"nearby_locations": locations}
+
+
+##############################
+####### API Event Sourcing ###
+##############################
+@app.post("/events/")
+async def add_event(stream_name: str, event: str):
+    await record_event(app.state.redis, stream_name, event)
+    return {"message": "Event recorded."}
+
+
+@app.get("/events/")
+async def get_recent_events(stream_name: str, count: int = 10):
+    events = await get_events(app.state.redis, stream_name, count)
+    return {"events": events}
+
+
+#####################################
+####### API Event Sourcing Stream ###
+#####################################
+
+
+@app.post("/streams/{stream_name}/events/")
+async def add_stream_event(stream_name: str, event_data: dict):
+    event_id = await add_event_to_stream(app.state.redis, stream_name, event_data)
+    return {"event_id": event_id}
+
+
+@app.post("/streams/{stream_name}/groups/{group_name}/")
+async def create_group(stream_name: str, group_name: str):
+    await create_consumer_group(app.state.redis, stream_name, group_name)
+    return {
+        "message": f"Consumer group '{group_name}' created for stream '{stream_name}'."
+    }
+
+
+@app.get("/streams/{stream_name}/groups/{group_name}/events/")
+async def get_events_from_stream(
+    stream_name: str,
+    group_name: str,
+    consumer_name: str = "consumer-1",
+    count: int = 10,
+):
+    events = await read_from_stream(
+        app.state.redis, stream_name, group_name, consumer_name, count
+    )
+    return {"events": events}
+
+
+@app.post("/streams/{stream_name}/groups/{group_name}/acknowledge/")
+async def acknowledge_stream_event(stream_name: str, group_name: str, event_id: str):
+    await acknowledge_event(app.state.redis, stream_name, group_name, event_id)
+    return {"message": f"Event '{event_id}' acknowledged."}
