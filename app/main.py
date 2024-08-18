@@ -9,6 +9,7 @@ from app.schemas.user import User, UserCreate
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.leaderboard import add_score, get_leaderboard
+from app.services.proximity_search import add_location, find_nearby_locations
 from app.services.redis_lock import distributed_lock
 
 app = FastAPI()
@@ -85,3 +86,22 @@ async def add_to_leaderboard(user_id: str, score: int):
 async def get_top_leaderboard(top_n: int = 10):
     leaderboard = await get_leaderboard(app.state.redis, top_n)
     return {"leaderboard": leaderboard}
+
+
+##############################
+####### API Proximity #######
+##############################
+@app.post("/locations/")
+async def add_new_location(name: str, longitude: float, latitude: float):
+    await add_location(app.state.redis, name, longitude, latitude)
+    return {"message": f"Location '{name}' added."}
+
+
+@app.get("/locations/")
+async def get_nearby_locations(
+    longitude: float, latitude: float, radius: float, unit: str = "km"
+):
+    locations = await find_nearby_locations(
+        app.state.redis, longitude, latitude, radius, unit
+    )
+    return {"nearby_locations": locations}
