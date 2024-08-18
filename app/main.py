@@ -8,7 +8,7 @@ from app.crud.user import create_user, get_user, get_user_by_email
 from app.schemas.user import User, UserCreate
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.event_sourcing import acknowledge_event, add_event_to_stream, create_consumer_group, get_events, read_from_stream, record_event
+from app.services.event_sourcing import acknowledge_event, add_event_to_stream, create_consumer_group, read_from_stream
 from app.services.leaderboard import add_score, get_leaderboard
 from app.services.proximity_search import add_location, find_nearby_locations
 from app.services.redis_lock import distributed_lock
@@ -106,22 +106,6 @@ async def get_nearby_locations(
         app.state.redis, longitude, latitude, radius, unit
     )
     return {"nearby_locations": locations}
-
-
-##############################
-####### API Event Sourcing ###
-##############################
-@app.post("/events/")
-async def add_event(stream_name: str, event: str):
-    await record_event(app.state.redis, stream_name, event)
-    return {"message": "Event recorded."}
-
-
-@app.get("/events/")
-async def get_recent_events(stream_name: str, count: int = 10):
-    events = await get_events(app.state.redis, stream_name, count)
-    return {"events": events}
-
 
 #####################################
 ####### API Event Sourcing Stream ###

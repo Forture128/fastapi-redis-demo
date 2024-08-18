@@ -1,15 +1,6 @@
 from typing import Dict
 import redis.asyncio as redis
 
-
-async def record_event(redis_client: redis.Redis, stream_name: str, event: str):
-    await redis_client.lpush(stream_name, event)
-
-
-async def get_events(redis_client: redis.Redis, stream_name: str, count: int = 10):
-    return await redis_client.lrange(stream_name, 0, count - 1)
-
-
 #################### Event Sourcing Stream ####################
 async def add_event_to_stream(
     redis_client: redis.Redis, stream_name: str, event_data: Dict[str, str]
@@ -36,7 +27,7 @@ async def create_consumer_group(
     """
     try:
         await redis_client.xgroup_create(stream_name, group_name, id="0", mkstream=True)
-    except redis.exceptions.ResponseError as e:
+    except Exception as e:
         # If the group already exists, we'll ignore the error
         if "BUSYGROUP" not in str(e):
             raise e

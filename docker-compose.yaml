@@ -2,22 +2,6 @@
 version: '3.8'
 
 services:
-  backend:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-    container_name: fastapi_web
-    ports:
-      - "8000:8000"
-    networks:
-      - app-network
-    depends_on:
-      - redis
-      - postgres
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@postgres/dbname
-      - REDIS_URL=redis://redis:6379
-
   redis:
     image: redis:7
     container_name: redis
